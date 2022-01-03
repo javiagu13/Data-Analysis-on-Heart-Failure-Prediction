@@ -1,0 +1,146 @@
+
+
+---
+  title: "Untitled"
+output:
+  bookdown::pdf_document2:
+  toc: no
+geometry: margin=0.8
+header-includes:
+  - \usepackage{attachfile2}
+- \usepackage{booktabs}
+- \usepackage{caption}
+- \usepackage{float}
+- \usepackage[utf8]{inputenc}
+- \usepackage{makeidx}
+- \makeindex
+- \usepackage{multirow}
+- \usepackage{setspace}
+- \usepackage{relsize}
+- \usepackage[table]{xcolor}
+- \setcounter{tocdepth}{5}
+- \setcounter{secnumdepth}{0}
+- \hypersetup{unicode=true,pdfusetitle,bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2,breaklinks=false,backref=false,colorlinks=true,linkcolor=blue}
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```  
+
+# R Markdown
+
+This is an \index{R Markdown} R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+# Appendix - A
+End of the document
+
+\printindex
+
+  
+data <- read.csv("heart.csv")
+data<-data[-450,]
+data<-data.matrix(data)
+
+myPr <- prcomp(data[,c(1:11)], scale = TRUE)
+
+summary(myPr)
+
+
+plot(myPr, type = "l")
+
+biplot(myPr, scale = 0)
+myPr$x
+
+data2 <- cbind(data, myPr$x)
+library(ggplot2)
+data2<-data.frame(data2)
+ggplot(data2, aes(PC1, PC2, col = HeartDisease, fill = HeartDisease)) +
+  stat_ellipse(geom = "polygon", col = "black", alpha = 0.5) +
+  geom_point(shape = 21, col = "black")
+
+cor(data[,c(1:11)], data2[, 13:16])
+
+##GGPLOTS: Age 1, ExerciseAngina 9, RestingBP 4, Oldpeak 10
+
+dataAge<-data.frame(data[,12],data[,1])
+names(dataAge)<-c("HeartDisease","Age")
+dataAngina<-data.frame(data[,12],data[,9])
+names(dataAngina)<-c("HeartDisease","ExerciseAngina")
+dataResting<-data.frame(data[,12],data[,4])
+names(dataResting)<-c("HeartDisease","RestingBP")
+dataPeak<-data.frame(data[,12],data[,10])
+names(dataPeak)<-c("HeartDisease","Oldpeak")
+dataSlope<-data.frame(data[,12],data[,11])
+names(dataSlope)<-c("HeartDisease","ST_Slope")
+dataMaxHR<-data.frame(data[,12],data[,8])
+names(dataMaxHR)<-c("HeartDisease","MaxHR")
+
+#Age Study
+datHealthy<-subset(dataAge, HeartDisease == 0)
+datUnhealthy<-subset(dataAge, HeartDisease == 1)
+#en este plot da la sensacion de que hay una gran concentracion en la muestra con cardiopatias de gente +55 años
+hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+
+
+#Angina study
+datHealthy<-subset(dataAngina, HeartDisease == 0)
+datUnhealthy<-subset(dataAngina, HeartDisease == 1)
+#los resultados concuerdan con el cpa y son contundentes: 1=no angina 2=angina, si miramos los resultados de la gente sin cardiopatias apenas tienen angina por ejercicio y de los que tienen una cantidad enorme tiene
+hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+
+#RestingBP study
+datHealthy<-subset(dataResting, HeartDisease == 0)
+datUnhealthy<-subset(dataResting, HeartDisease == 1)
+#se aprecia sin srt tan evidente que el blood pressure en gente con cardiopatias es más alto y en el caso de los sin cardiopatias tiende a ser mas bajo
+hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+
+
+#Oldpeak study
+datHealthy<-subset(dataPeak, HeartDisease == 0)
+datUnhealthy<-subset(dataPeak, HeartDisease == 1)
+#se ve que literalmente los graficos son lo contrario, cuando la gente tiene cardiopatias tiende a tener un oldpeak mayor que cuando no tiene cardiopatias
+hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+
+#plot
+p<-ggplot() + 
+  geom_point(data=data2, mapping=aes(x = Oldpeak, y = HeartDisease,color = "blue"))+
+  xlab("nth sample (10,25,50...)") +
+  ylab("variance value")
+p + scale_color_manual(labels = c("alpha variance"),values=c("dodgerblue4"))
+
+#ST_slope study
+datHealthy<-subset(dataSlope, HeartDisease == 0)
+datUnhealthy<-subset(dataSlope, HeartDisease == 1)
+#1=down 2=flat 3=up it can be seen that the peak is reached in flat for the people with cardiopaties and to the healthy people upwards
+hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+
+
+#MaxHR study
+datHealthy<-subset(dataMaxHR, HeartDisease == 0)
+datUnhealthy<-subset(dataMaxHR, HeartDisease == 1)
+#max heartrate in people with cardiopaties tends to be smaller than people without them
+hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+
+
+
+#plot
+p<-ggplot() + 
+  geom_point(data=data2, mapping=aes(x = MaxHR, y = HeartDisease,color = "blue"))+
+  xlab("nth sample (10,25,50...)") +
+  ylab("variance value")
+p + scale_color_manual(labels = c("alpha variance"),values=c("dodgerblue4"))
+
+
+#BASURA
+p<-ggplot() + 
+  #geom_line(data=data2, mapping=aes(x = Age, y = HeartDisease,color = "blue"))+
+  geom_point(data=data2, mapping=aes(x = Age, y = HeartDisease,color = "blue"))+
+  xlab("nth sample (10,25,50...)") +
+  ylab("variance value")
+
+p + scale_color_manual(labels = c("alpha variance"),values=c("dodgerblue4"))
