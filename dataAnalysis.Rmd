@@ -1,66 +1,146 @@
-
-
 ---
-  title: "Untitled"
-output:
-  bookdown::pdf_document2:
-  toc: no
-geometry: margin=0.8
-header-includes:
-  - \usepackage{attachfile2}
-- \usepackage{booktabs}
-- \usepackage{caption}
-- \usepackage{float}
-- \usepackage[utf8]{inputenc}
-- \usepackage{makeidx}
-- \makeindex
-- \usepackage{multirow}
-- \usepackage{setspace}
-- \usepackage{relsize}
-- \usepackage[table]{xcolor}
-- \setcounter{tocdepth}{5}
-- \setcounter{secnumdepth}{0}
-- \hypersetup{unicode=true,pdfusetitle,bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2,breaklinks=false,backref=false,colorlinks=true,linkcolor=blue}
+title: "Analisis Exploratorio y Predicción de Enfermedades del Corazón"
+author: "Javier Aguirre"
+date: "31/12/2021"
+output: hrbrthemes::ipsum_pdf
 ---
+
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```  
+knitr::opts_chunk$set(echo = TRUE,  dev = "cairo_pdf")
 
-# R Markdown
+```
 
-This is an \index{R Markdown} R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+# Indíce
 
-# Appendix - A
-End of the document
+Índice.........................................................................................1
 
-\printindex
+Datos.........................................................................................2
 
-  
+Estudio descriptivo general....................................................................3
+
+Análisis de relaciones entre variables...........................................................7
+
+Modelo Predictivo...........................................................................20
+
+Entrenamiento y Resultados de K-nn.........................................................21
+
+
+
+\pagebreak
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r message = FALSE}
+
+```
+
+# Datos
+
+Los datos han sido recogidos de kaggle del dataset llamado "Heart Failure Prediction Dataset" de el siguiente link: https://www.kaggle.com/fedesoriano/heart-failure-prediction
+
+Las enfermedades cardiovasculares son la causa número 1 de muerte globalmente, aproximadamente con una tasa de mortalidad de 17.9 personas globalmente, lo que es el 31% de las muertes a nivel mundial. Este dataset contiene 11 características que se pueden usar para predecir posibles enfermedades del corazón.
+
+La gente con enfermedades cardiovasculares o que tienen alto riesgo de enfermedades necesitan una detección precoz y tratamiento. La exploración puede aportar información valiosa en encontrar patrones y un modelo eficaz de machine learning puede ayudar a la prevención. Por eso, se procederá a la exploración de datos y a construir un modelo de machine learning.
+
+$~~~~~~$
+
+**Información de los datos**
+
+**Age**: edad del paciente en años
+
+**Sex**: sexo del paciente [M: Hombre (Male), F: Mujer (Female)]
+
+**ChestPainType**: Tipo de dolor de pecho [TA: Angina Típica (Typical Angina), ATA: Angina Atípica (Atypical Angina), NAP: Dolor No-Angina (Non-Anginal Pain), ASY: Asintomático (Asymptomatic)]
+
+**RestingBP**: presion sanguínea en reposo mm Hg
+
+**Cholesterol**: colesterol en suero [mm/dl]
+
+**FastingBS**: azúcar en sangre en ayunas [1: si FastingBS > 120 mg/dl, 0: si no]
+
+**RestingECG**: resultados de electrocardiograma en reposo [Normal: Normal, ST: tener una anormalidad en las ondas ST-T (inversion en la onda T y/o elevación o depresion en ST de > 0.05 mV), LVH: mostrado una probable o definitiva hipertrofia en el ventrículo izquierdo por el criterio de Estes]
+
+**MaxHR**: máxima pulsación obtenida [valor numérico entre 60 y 202]
+
+**ExerciseAngina**: angina inducida por ejercicio [Y: Si, N: No]
+
+**Oldpeak**: depresión del ST inducida por el ejercicio relativo al descanso [valor numérico medido en depresión]
+
+**ST_Slope**: pendiente del segmento ST de ejercicio máximo [Up: cuesta arriba, Flat: plano, Down: cuesta abajo]
+
+**HeartDisease**: clase de enfermedad del corazón [1: Enfermo, 0: Normal]
+
+
+\pagebreak
+
+# Estudio descriptivo general
+Primero vamos a cargar los datos:
+(eliminamos la fila 450 ya que contenia un dato faltante y todas las variables nominales las sustituiremos por numeros usando la funcion matrix). Hay que tener en cuenta que cuando tenemos valores faltantes o outliers hay que ser rigurosos a la hora de proponer una solución. En este caso teniendo en cuenta que tenemos 917 muestras y sólo en 1 hay datos faltantes, borrarla es una buena opción ya que no tiene una gran importancia en el dataset.
+
+```{r}
 data <- read.csv("heart.csv")
 data<-data[-450,]
 data<-data.matrix(data)
 
-myPr <- prcomp(data[,c(1:11)], scale = TRUE)
+```
 
+
+
+Dada la naturaleza de los datos, es importante identificar que componentes estan relacionados entre ellos y con las enfermedades cardíacas. Por eso, vamos a proceder a aplicar la tecnica del PCA (Principal component analysis) para reducir la dimensionalidad de los datos y entender mejor las relaciones de nuestro dataset.
+
+```{r}
+myPr <- prcomp(data[,c(1:12)], scale = TRUE)
 summary(myPr)
-
-
 plot(myPr, type = "l")
+```
+Se puede ver en la figura de arriba la importancia de las dos primeras componenetes lo que explica casi la mitad de la variabilidad de los datos.
 
+
+A continuación el biplot del PCA. Este plot se utiliza para poder ver las dos componentes principales y la ubicacion de cada variable en la correlación:
+
+```{r}
 biplot(myPr, scale = 0)
-myPr$x
+```
+Se aprecian en el biplot $4$ clusters diferentes formandose. El primero es *age*, *exerciseAngina*, *RestingBP*, *Oldpeak* y *HeartDisease*. El segundo es *ST_Slope*, *ChestPainType* y *MaxHR*. El tercero es *RestingECG*, *FastingBS* y *sex*. Finalmente *cholesterol* el colesterol está separado del resto de los datos. 
 
+Aparte del biplot, podemos coger los componenetes principales (PC1 y PC2) y ver su relación con respecto a la variable de enfermedad del corazón.
+  
+```{r}
 data2 <- cbind(data, myPr$x)
 library(ggplot2)
 data2<-data.frame(data2)
 ggplot(data2, aes(PC1, PC2, col = HeartDisease, fill = HeartDisease)) +
-  stat_ellipse(geom = "polygon", col = "black", alpha = 0.5) +
-  geom_point(shape = 21, col = "black")
+    geom_point(shape = 21, col = "black")
 
+```
+Aunque la separacion no sea perfecta, se puede ver claramente que el PC1 es capaz de separar bastante bien los enfermos de los normales. Lo cual indica que dentro de PC1 los elementos aunque no perfectos, son predictores de la enfermedad.
+
+Además aqui la correlacion entre variables y componentes principales:
+
+
+```{r}
 cor(data[,c(1:11)], data2[, 13:16])
+```
 
-##GGPLOTS: Age 1, ExerciseAngina 9, RestingBP 4, Oldpeak 10
 
+
+\pagebreak
+# Análisis de relaciones entre variables
+
+Primero de todo vamos a crear nuevos dataframes para hacer analisis específicos de variables y compararemos las variables con *HeartDisease*. En concreto vamos a elegir las variables con mayores puntuaciones en el analisis de PCA y menores puntuaciones (*Age*,*ExerciseAngina*,*RestingBP*,*Oldpeak*,*ST_Slope*,*MaxHR*):
+
+```{r}
 dataAge<-data.frame(data[,12],data[,1])
 names(dataAge)<-c("HeartDisease","Age")
 dataAngina<-data.frame(data[,12],data[,9])
@@ -73,74 +153,184 @@ dataSlope<-data.frame(data[,12],data[,11])
 names(dataSlope)<-c("HeartDisease","ST_Slope")
 dataMaxHR<-data.frame(data[,12],data[,8])
 names(dataMaxHR)<-c("HeartDisease","MaxHR")
+```
 
+Ahora podemos comenzar con el estudio. 
+
+\pagebreak
+
+Empezamos comparando la edad de los enfermos con la de los sanos para ver si como aparecia en el PCA tienen relación alguna.*age*:
+
+```{r}
 #Age Study
 datHealthy<-subset(dataAge, HeartDisease == 0)
 datUnhealthy<-subset(dataAge, HeartDisease == 1)
-#en este plot da la sensacion de que hay una gran concentracion en la muestra con cardiopatias de gente +55 a�os
-hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(main="Age de gente con enfermedad del corazón", xlab="Age", as.numeric(unlist(datUnhealthy[,2])), col='red')
+```
+\pagebreak
+```{r}
+hist(main="Age de gente sana y enferma",xlab="Age",as.numeric(unlist(datUnhealthy[,2])), col='red')
 hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+```
+Es importante tener en cuenta que los datos originales no son uniformes si no que al haber más población de 50 años que jovenes, hay mayor cantidad de datos de gente adulta. Por lo tanto, es arriesgado decir que en gente muy mayor hay menos casos. Ahora, si se puede comparar la cantidad de gente sana y enferma y su distribución. Se puede apreciar como hay más frecuencia de casos de enfermedades del corazon en gente mayor que joven. Y como de la población total la gente sana esta más distribuida que los enfermos. 
 
+\pagebreak
+Analicemos ahora la angina (1 equivale a no tener angina y 2 equivale a tener angina):
 
+```{r}
 #Angina study
 datHealthy<-subset(dataAngina, HeartDisease == 0)
 datUnhealthy<-subset(dataAngina, HeartDisease == 1)
-#los resultados concuerdan con el cpa y son contundentes: 1=no angina 2=angina, si miramos los resultados de la gente sin cardiopatias apenas tienen angina por ejercicio y de los que tienen una cantidad enorme tiene
-hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
-hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+hist(main="Angina type de gente con enfermedad del corazón",xlab="Angina", as.numeric(unlist(datUnhealthy[,2])), col='red')
+```
 
+\pagebreak
+```{r}
+hist(main="Angina type de gente sana y enferma",xlab="Angina",as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+```
+De nuevo, para evitar sesgos compararemos los casos de enfermos con los casos sanos para obtener una buena comparativa. Podemos ver como la gente sana apenas tiene angina, mientras que la gente enferma tiene en gran cantidad angina. Esto no quiere decir que si tienes enfermedades del corazón vayas a tener angina, pero si que se puede ver que en gran medida y comparando gente sana y enferma, el ratio de tener angina y estar enfermo es de $300$ frente a $50$ de gente sana. Por lo tanto, la angina parece un buen predictor de enfermedades del corazón.
+
+\pagebreak
+
+Analicemos ahora la presion sanguínea en reposo (RestingBP):
+
+
+```{r}
 #RestingBP study
 datHealthy<-subset(dataResting, HeartDisease == 0)
 datUnhealthy<-subset(dataResting, HeartDisease == 1)
-#se aprecia sin srt tan evidente que el blood pressure en gente con cardiopatias es m�s alto y en el caso de los sin cardiopatias tiende a ser mas bajo
-hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(main="RestingBP de gente con enfermedad del corazón",xlab="RestingBP", as.numeric(unlist(datUnhealthy[,2])), col='red')
+```
+\pagebreak
+
+```{r}
+hist(main="RestingBP de gente sana y enferma",xlab="RestingBP",as.numeric(unlist(datUnhealthy[,2])), col='red')
 hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+```
+En este caso se puede ver que presiones sanguineas más altas tienden a tener mayores enfermedades del corazón. Ahora, tampoco se ve una proporción muy significativa.
 
+\pagebreak
 
+Ahora analicemos el Oldpeak (depresión del ST inducida por el ejercicio relativo al descanso):
+
+```{r}
 #Oldpeak study
 datHealthy<-subset(dataPeak, HeartDisease == 0)
 datUnhealthy<-subset(dataPeak, HeartDisease == 1)
-#se ve que literalmente los graficos son lo contrario, cuando la gente tiene cardiopatias tiende a tener un oldpeak mayor que cuando no tiene cardiopatias
-hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(main="Oldpeak de gente con enfermedad del corazón",xlab="Oldpeak", as.numeric(unlist(datUnhealthy[,2])), col='red')
+
+```
+
+\pagebreak
+
+```{r}
+hist(main="Oldpeak de gente sana y enferma",xlab="Oldpeak", as.numeric(unlist(datUnhealthy[,2])), col='red')
 hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+```
+En el caso del Oldpeak si podemos ver de nuevo una relación. De hecho, se puede ver como a medida que el oldpeak es mayor aumenta su frecuencia en el caso de los enfermos mientras que en el caso de los sanos pasa lo opuesto, cuando el oldpeak es menor es cuando aumenta su frecuencia. Por ello, el oldpeak parece ser un buen predictor.
 
-#plot
-p<-ggplot() + 
-  geom_point(data=data2, mapping=aes(x = Oldpeak, y = HeartDisease,color = "blue"))+
-  xlab("nth sample (10,25,50...)") +
-  ylab("variance value")
-p + scale_color_manual(labels = c("alpha variance"),values=c("dodgerblue4"))
+\pagebreak
 
+Ahora analicemos el ST_Slope (pendiente del segmento ST de ejercicio máximo, 1 es cuesta abajo, 2 es recto y 3 es cuesta arriba):
+
+```{r}
 #ST_slope study
 datHealthy<-subset(dataSlope, HeartDisease == 0)
 datUnhealthy<-subset(dataSlope, HeartDisease == 1)
-#1=down 2=flat 3=up it can be seen that the peak is reached in flat for the people with cardiopaties and to the healthy people upwards
-hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(main="ST_Slope de gente con enfermedad del corazón",xlab="ST_Slope", as.numeric(unlist(datUnhealthy[,2])), col='red')
+```
+\pagebreak
+
+```{r}
+hist(main="ST_Slope de gente sana y enferma",xlab="ST_Slope",as.numeric(unlist(datUnhealthy[,2])), col='red')
 hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+```
+Los resultados son bastante claros en el ST_Slope. Se puede ver como dentro de los enfermos la mayoría de enfermos estan en recto y pocos casos en cuesta arriba o cuesta abajo. Por otro lado en el caso de los sanos los resultados son justo los contrarios. En recto hay muy poca gente y cuesta arriba mucha. Parece que el ST_Slope es un buen predictor de enfermedades del corazón.
 
+\pagebreak
 
+Para finalizar analicemos el MaxHR (máxima pulsación del corazón).
+
+```{r}
 #MaxHR study
 datHealthy<-subset(dataMaxHR, HeartDisease == 0)
 datUnhealthy<-subset(dataMaxHR, HeartDisease == 1)
-#max heartrate in people with cardiopaties tends to be smaller than people without them
-hist(as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(main="MaxHR de gente con enfermedad del corazón",xlab="MaxHR", as.numeric(unlist(datUnhealthy[,2])), col='red')
+
+```
+\pagebreak
+```{r}
+hist(main="MaxHR de gente sana y enferma",xlab="MaxHR",as.numeric(unlist(datUnhealthy[,2])), col='red')
 hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+```
+En el caso de la máxima puntuación se puede ver como gente con mayores niveles de pulsación tiende a estar más sana mientras que gente enferma tiende a tener menores niveles de pulsación. Por lo que también parece un buen indicador de enfermedades del corazón.
+
+### Conclusion
+
+Parece que la *angina*, *oldpeak* y *ST_Slope* son las variables que más claramente predicen las enfermedades del corazón. Además la máxima pulsación *MaxHR* y la edad *age* tambien parecen bastante buenas predictoras.
 
 
+\pagebreak
+# Modelo predictivo
 
-#plot
-p<-ggplot() + 
-  geom_point(data=data2, mapping=aes(x = MaxHR, y = HeartDisease,color = "blue"))+
-  xlab("nth sample (10,25,50...)") +
-  ylab("variance value")
-p + scale_color_manual(labels = c("alpha variance"),values=c("dodgerblue4"))
+Después de haber explorado la base de datos y haber extraido conclusiones, es hora de intentar predecir dados unos datos iniciales si un paciente tiene o tendrá enfermedades del corazón. Para ello, utilizaremos el conocido algoritmo de K-nn.
 
+## Aprendizaje supervisado K-nn
 
-#BASURA
-p<-ggplot() + 
-  #geom_line(data=data2, mapping=aes(x = Age, y = HeartDisease,color = "blue"))+
-  geom_point(data=data2, mapping=aes(x = Age, y = HeartDisease,color = "blue"))+
-  xlab("nth sample (10,25,50...)") +
-  ylab("variance value")
+A continuación, dividiremos el conjunto de datos en train y test. Tomaremos el 80% de los datos para entrenar y el 20% restante para test. Utilizaremos la librería "caret". 
 
-p + scale_color_manual(labels = c("alpha variance"),values=c("dodgerblue4"))
+```{r}
+library(caret)
+data[,12]<-factor(data[,12])
+
+# Obtener los índices del conjunto de train
+trainIndex <- createDataPartition(data[,12], p = .8, list = FALSE, times = 1)
+# Seleccionar las instancias correspondientes
+data.train <- data[trainIndex, ]
+data.test <- data[-trainIndex, ]
+```
+
+Es importante comprobar que nuestras clases estén correctamente distribuidas, para ello podemos ver la proporción de HeartDisease en los datos generales, en el train y en el test:
+
+```{r}
+# Distribución original
+prop.table(table(data[,12]))
+# Distribución en el conjunto de train
+prop.table(table(data.train[,12]))
+# Distribución en el conjunto de test
+prop.table(table(data.test[,12]))
+```
+\pagebreak
+
+## Entrenamiento y Resultados de K-nn
+
+Vamos a crear un modelo para clasificar mediante k-NN.
+
+ 
+```{r, cache = TRUE}
+train.ctrl <- trainControl(method = "none") 
+knn_fit <- train(HeartDisease ~., data = data.train, 
+                 method = "knn",
+                 trControl=train.ctrl,
+                 preProcess = c("center", "scale"),
+                 tuneGrid = data.frame(k=1))
+knn_fit
+```
+ 
+Para entrenar el clasificador k-NN, debemos pasarle "method = knn" al método train(). "HeartDisease ~." indica que HeartDisease será la clase. En este caso es conveniente normalizar, ya que tenemos valores numéricos que pueden tener diferentes distribuciones y vamos a utilizar distancias. También hemos establecido el número de vecinos (k=1) mediante el parámetro "tuneGrid". En nuestro caso, como solo tenemos HeartDisease con valores de $1$ o $2$ nuestra $k$ será igual a $1$.
+
+Una vez construido el modelo lo evaluamos con los datos del conjunto test:
+
+```{r, cache = TRUE}
+knnPredict <- predict(knn_fit, newdata = data.test) 
+knnPredict
+```
+
+Utilizamos la matriz de confusión para ver los resultados estadísticos:
+
+```{r, cache = TRUE}
+confusionMatrix(table(knnPredict, data.test[,12])) 
+```
+
+Como conclusión, se puede apreciar como con K-nn hemos obtenido una precisión del 84.15% lo que indica que con una fiabilidad bastante alta se pueden predecir enfermedades del corazón. Es importante destacar que en el ámbito médico una fiabilidad del 84.15% no es admisible ya que no se puede utilizar como diagnóstico fiable. Por eso, otros posibles métodos de clasificación o una clasificación con k-nn optimizando los parámetros es necesaria para poder obtener una gran precisión. Es muy posible que utilizando el método y los parámetros adecuados se pueda obtener una puntuación mayor.
