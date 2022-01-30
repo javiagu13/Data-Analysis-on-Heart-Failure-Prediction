@@ -7,7 +7,7 @@ output: hrbrthemes::ipsum_pdf
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE,  dev = "cairo_pdf")
-
+ 
 ```
 
 # Indíce
@@ -18,11 +18,17 @@ Datos...........................................................................
 
 Estudio descriptivo general....................................................................3
 
-Análisis de relaciones entre variables...........................................................7
+Análisis de relaciones entre variables...........................................................8
 
-Modelo Predictivo...........................................................................20
+Modelos Predictivos..........................................................................21
 
-Entrenamiento y Resultados de K-nn.........................................................21
+K-nn.........................................................................................21
+
+Entrenamiento y Resultados de K-nn.........................................................22
+
+Árbol de Decisión............................................................................24
+
+Entrenamiento y Resultados de Árbol de Decisión.............................................25
 
 
 
@@ -42,7 +48,7 @@ Entrenamiento y Resultados de K-nn..............................................
 
 
 ```{r message = FALSE}
-
+ 
 ```
 
 # Datos
@@ -91,7 +97,7 @@ Primero vamos a cargar los datos:
 ```{r}
 data <- read.csv("heart.csv")
 data<-data[-450,]
-data<-data.matrix(data)
+data<-data.matrix(data) 
 
 ```
 
@@ -101,7 +107,7 @@ Dada la naturaleza de los datos, es importante identificar que componentes estan
 
 ```{r}
 myPr <- prcomp(data[,c(1:12)], scale = TRUE)
-summary(myPr)
+summary(myPr) 
 plot(myPr, type = "l")
 ```
 Se puede ver en la figura de arriba la importancia de las dos primeras componenetes lo que explica casi la mitad de la variabilidad de los datos.
@@ -110,14 +116,14 @@ Se puede ver en la figura de arriba la importancia de las dos primeras componene
 A continuación el biplot del PCA. Este plot se utiliza para poder ver las dos componentes principales y la ubicacion de cada variable en la correlación:
 
 ```{r}
-biplot(myPr, scale = 0)
+biplot(myPr, scale = 0) 
 ```
 Se aprecian en el biplot $4$ clusters diferentes formandose. El primero es *age*, *exerciseAngina*, *RestingBP*, *Oldpeak* y *HeartDisease*. El segundo es *ST_Slope*, *ChestPainType* y *MaxHR*. El tercero es *RestingECG*, *FastingBS* y *sex*. Finalmente *cholesterol* el colesterol está separado del resto de los datos. 
 
 Aparte del biplot, podemos coger los componenetes principales (PC1 y PC2) y ver su relación con respecto a la variable de enfermedad del corazón.
   
 ```{r}
-data2 <- cbind(data, myPr$x)
+data2 <- cbind(data, myPr$x) 
 library(ggplot2)
 data2<-data.frame(data2)
 ggplot(data2, aes(PC1, PC2, col = HeartDisease, fill = HeartDisease)) +
@@ -130,10 +136,27 @@ Además aqui la correlacion entre variables y componentes principales:
 
 
 ```{r}
-cor(data[,c(1:11)], data2[, 13:16])
+cor(data[,c(1:11)], data2[, 13:16]) 
 ```
 
 
+
+\pagebreak
+
+Además de PCA realizaremos un analisis con tSNE. En caso de que los clusters sean obvios tSNE debería separarlos claramente en dos dimensiones
+
+```{r}
+library(Rtsne)
+ 
+tsne <- Rtsne(data[,1:11], check_duplicates = FALSE, pca = FALSE, dims=2)
+cols <- rainbow(2)
+plot(tsne$Y, t='n')
+
+text(tsne$Y, labels=data[,12], col=cols[data[,12] +1])
+
+```
+
+Se puede ver como separa los datos en dos clusters. En uno parece que hay una mayor cantidad de unos que de ceros mientras que en el otro parece bastante balanceado. No parece que tSNE haya realizado una clara separación en cuanto a la variable **HeartDisease** se refiere. (en este gráfico en concreto $0$ hace referencia a pacientes sanos mientras que $1$ hace referencia a pacientes con enfermedades del corazón).
 
 \pagebreak
 # Análisis de relaciones entre variables
@@ -148,7 +171,7 @@ names(dataAngina)<-c("HeartDisease","ExerciseAngina")
 dataResting<-data.frame(data[,12],data[,4])
 names(dataResting)<-c("HeartDisease","RestingBP")
 dataPeak<-data.frame(data[,12],data[,10])
-names(dataPeak)<-c("HeartDisease","Oldpeak")
+names(dataPeak)<-c("HeartDisease","Oldpeak") 
 dataSlope<-data.frame(data[,12],data[,11])
 names(dataSlope)<-c("HeartDisease","ST_Slope")
 dataMaxHR<-data.frame(data[,12],data[,8])
@@ -162,7 +185,7 @@ Ahora podemos comenzar con el estudio.
 Empezamos comparando la edad de los enfermos con la de los sanos para ver si como aparecia en el PCA tienen relación alguna.*age*:
 
 ```{r}
-#Age Study
+#Age Study 
 datHealthy<-subset(dataAge, HeartDisease == 0)
 datUnhealthy<-subset(dataAge, HeartDisease == 1)
 hist(main="Age de gente con enfermedad del corazón", xlab="Age", as.numeric(unlist(datUnhealthy[,2])), col='red')
@@ -170,7 +193,7 @@ hist(main="Age de gente con enfermedad del corazón", xlab="Age", as.numeric(unl
 \pagebreak
 ```{r}
 hist(main="Age de gente sana y enferma",xlab="Age",as.numeric(unlist(datUnhealthy[,2])), col='red')
-hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE) 
 ```
 Es importante tener en cuenta que los datos originales no son uniformes si no que al haber más población de 50 años que jovenes, hay mayor cantidad de datos de gente adulta. Por lo tanto, es arriesgado decir que en gente muy mayor hay menos casos. Ahora, si se puede comparar la cantidad de gente sana y enferma y su distribución. Se puede apreciar como hay más frecuencia de casos de enfermedades del corazon en gente mayor que joven. Y como de la población total la gente sana esta más distribuida que los enfermos. 
 
@@ -179,7 +202,7 @@ Analicemos ahora la angina (1 equivale a no tener angina y 2 equivale a tener an
 
 ```{r}
 #Angina study
-datHealthy<-subset(dataAngina, HeartDisease == 0)
+datHealthy<-subset(dataAngina, HeartDisease == 0) 
 datUnhealthy<-subset(dataAngina, HeartDisease == 1)
 hist(main="Angina type de gente con enfermedad del corazón",xlab="Angina", as.numeric(unlist(datUnhealthy[,2])), col='red')
 ```
@@ -187,7 +210,7 @@ hist(main="Angina type de gente con enfermedad del corazón",xlab="Angina", as.n
 \pagebreak
 ```{r}
 hist(main="Angina type de gente sana y enferma",xlab="Angina",as.numeric(unlist(datUnhealthy[,2])), col='red')
-hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE) 
 ```
 De nuevo, para evitar sesgos compararemos los casos de enfermos con los casos sanos para obtener una buena comparativa. Podemos ver como la gente sana apenas tiene angina, mientras que la gente enferma tiene en gran cantidad angina. Esto no quiere decir que si tienes enfermedades del corazón vayas a tener angina, pero si que se puede ver que en gran medida y comparando gente sana y enferma, el ratio de tener angina y estar enfermo es de $300$ frente a $50$ de gente sana. Por lo tanto, la angina parece un buen predictor de enfermedades del corazón.
 
@@ -198,14 +221,14 @@ Analicemos ahora la presion sanguínea en reposo (RestingBP):
 
 ```{r}
 #RestingBP study
-datHealthy<-subset(dataResting, HeartDisease == 0)
+datHealthy<-subset(dataResting, HeartDisease == 0) 
 datUnhealthy<-subset(dataResting, HeartDisease == 1)
 hist(main="RestingBP de gente con enfermedad del corazón",xlab="RestingBP", as.numeric(unlist(datUnhealthy[,2])), col='red')
 ```
 \pagebreak
 
 ```{r}
-hist(main="RestingBP de gente sana y enferma",xlab="RestingBP",as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(main="RestingBP de gente sana y enferma",xlab="RestingBP",as.numeric(unlist(datUnhealthy[,2])), col='red') 
 hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
 ```
 En este caso se puede ver que presiones sanguineas más altas tienden a tener mayores enfermedades del corazón. Ahora, tampoco se ve una proporción muy significativa.
@@ -216,7 +239,7 @@ Ahora analicemos el Oldpeak (depresión del ST inducida por el ejercicio relativ
 
 ```{r}
 #Oldpeak study
-datHealthy<-subset(dataPeak, HeartDisease == 0)
+datHealthy<-subset(dataPeak, HeartDisease == 0) 
 datUnhealthy<-subset(dataPeak, HeartDisease == 1)
 hist(main="Oldpeak de gente con enfermedad del corazón",xlab="Oldpeak", as.numeric(unlist(datUnhealthy[,2])), col='red')
 
@@ -226,7 +249,7 @@ hist(main="Oldpeak de gente con enfermedad del corazón",xlab="Oldpeak", as.nume
 
 ```{r}
 hist(main="Oldpeak de gente sana y enferma",xlab="Oldpeak", as.numeric(unlist(datUnhealthy[,2])), col='red')
-hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE) 
 ```
 En el caso del Oldpeak si podemos ver de nuevo una relación. De hecho, se puede ver como a medida que el oldpeak es mayor aumenta su frecuencia en el caso de los enfermos mientras que en el caso de los sanos pasa lo opuesto, cuando el oldpeak es menor es cuando aumenta su frecuencia. Por ello, el oldpeak parece ser un buen predictor.
 
@@ -236,7 +259,7 @@ Ahora analicemos el ST_Slope (pendiente del segmento ST de ejercicio máximo, 1 
 
 ```{r}
 #ST_slope study
-datHealthy<-subset(dataSlope, HeartDisease == 0)
+datHealthy<-subset(dataSlope, HeartDisease == 0) 
 datUnhealthy<-subset(dataSlope, HeartDisease == 1)
 hist(main="ST_Slope de gente con enfermedad del corazón",xlab="ST_Slope", as.numeric(unlist(datUnhealthy[,2])), col='red')
 ```
@@ -244,7 +267,7 @@ hist(main="ST_Slope de gente con enfermedad del corazón",xlab="ST_Slope", as.nu
 
 ```{r}
 hist(main="ST_Slope de gente sana y enferma",xlab="ST_Slope",as.numeric(unlist(datUnhealthy[,2])), col='red')
-hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
+hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE) 
 ```
 Los resultados son bastante claros en el ST_Slope. Se puede ver como dentro de los enfermos la mayoría de enfermos estan en recto y pocos casos en cuesta arriba o cuesta abajo. Por otro lado en el caso de los sanos los resultados son justo los contrarios. En recto hay muy poca gente y cuesta arriba mucha. Parece que el ST_Slope es un buen predictor de enfermedades del corazón.
 
@@ -254,14 +277,14 @@ Para finalizar analicemos el MaxHR (máxima pulsación del corazón).
 
 ```{r}
 #MaxHR study
-datHealthy<-subset(dataMaxHR, HeartDisease == 0)
+datHealthy<-subset(dataMaxHR, HeartDisease == 0) 
 datUnhealthy<-subset(dataMaxHR, HeartDisease == 1)
 hist(main="MaxHR de gente con enfermedad del corazón",xlab="MaxHR", as.numeric(unlist(datUnhealthy[,2])), col='red')
-
+ 
 ```
 \pagebreak
 ```{r}
-hist(main="MaxHR de gente sana y enferma",xlab="MaxHR",as.numeric(unlist(datUnhealthy[,2])), col='red')
+hist(main="MaxHR de gente sana y enferma",xlab="MaxHR",as.numeric(unlist(datUnhealthy[,2])), col='red')  
 hist(as.numeric(unlist(datHealthy[,2])),col='blue', add=TRUE)
 ```
 En el caso de la máxima puntuación se puede ver como gente con mayores niveles de pulsación tiende a estar más sana mientras que gente enferma tiende a tener menores niveles de pulsación. Por lo que también parece un buen indicador de enfermedades del corazón.
@@ -272,21 +295,23 @@ Parece que la *angina*, *oldpeak* y *ST_Slope* son las variables que más claram
 
 
 \pagebreak
-# Modelo predictivo
+# Modelos predictivos
 
-Después de haber explorado la base de datos y haber extraido conclusiones, es hora de intentar predecir dados unos datos iniciales si un paciente tiene o tendrá enfermedades del corazón. Para ello, utilizaremos el conocido algoritmo de K-nn.
+Después de haber explorado la base de datos y haber extraido conclusiones, es hora de intentar predecir dados unos datos iniciales si un paciente tiene o tendrá enfermedades del corazón. Para comenzar, utilizaremos el conocido algoritmo de K-nn.
 
 ## Aprendizaje supervisado K-nn
 
-A continuación, dividiremos el conjunto de datos en train y test. Tomaremos el 80% de los datos para entrenar y el 20% restante para test. Utilizaremos la librería "caret". 
+K-Nearest-Neighbor es un algoritmo supervisado que puede usarse para clasificar nuevas muestras (valores discretos) o para predecir (regresión, valores continuos). Sirve para clasificar valores buscando los puntos de datos “más similares” (por cercanía) aprendidos en la etapa de entrenamiento y haciendo conjeturas de nuevos puntos basado en esa clasificación. la "K" hace referencia al número de grupos.
+
+Para comenzar, dividiremos el conjunto de datos en train y test. Tomaremos el 80% de los datos para entrenar y el 20% restante para test. Utilizaremos la librería "caret". 
 
 ```{r}
 library(caret)
-data[,12]<-factor(data[,12])
+data[,12]<-factor(data[,12]) 
 
 # Obtener los índices del conjunto de train
 trainIndex <- createDataPartition(data[,12], p = .8, list = FALSE, times = 1)
-# Seleccionar las instancias correspondientes
+# Seleccionar las instancias correspondientes 
 data.train <- data[trainIndex, ]
 data.test <- data[-trainIndex, ]
 ```
@@ -295,8 +320,8 @@ Es importante comprobar que nuestras clases estén correctamente distribuidas, p
 
 ```{r}
 # Distribución original
-prop.table(table(data[,12]))
-# Distribución en el conjunto de train
+prop.table(table(data[,12])) 
+# Distribución en el conjunto de train 
 prop.table(table(data.train[,12]))
 # Distribución en el conjunto de test
 prop.table(table(data.test[,12]))
@@ -305,32 +330,118 @@ prop.table(table(data.test[,12]))
 
 ## Entrenamiento y Resultados de K-nn
 
-Vamos a crear un modelo para clasificar mediante k-NN.
+Vamos a crear un modelo para clasificar mediante k-NN. Vamos a realizar un $10$ fold cross validation (trainControl), lo que significa que separaremos el dataset en $10$ partes y entrenaremos $9$ de ellas y utilizaremos la restante como test. Este procedimiento se realizaría $10$ veces. En nuestro caso utilizaremos $3$ repeticiones. Hemos establecido tuneLength a $10$ lo que significa que probará a ejecutar el algoritmo con $10$ "k" diferentes.
 
  
 ```{r, cache = TRUE}
-train.ctrl <- trainControl(method = "none") 
-knn_fit <- train(HeartDisease ~., data = data.train, 
+train.ctrl <- trainControl(method="repeatedcv", number=10, repeats=3)  
+knn_fit <- train(factor(HeartDisease) ~., data = data.train, 
                  method = "knn",
                  trControl=train.ctrl,
-                 preProcess = c("center", "scale"),
-                 tuneGrid = data.frame(k=1))
+                 preProcess = c("center", "scale"),  
+                 tuneLength = 10) 
 knn_fit
 ```
- 
+
 Para entrenar el clasificador k-NN, debemos pasarle "method = knn" al método train(). "HeartDisease ~." indica que HeartDisease será la clase. En este caso es conveniente normalizar, ya que tenemos valores numéricos que pueden tener diferentes distribuciones y vamos a utilizar distancias. También hemos establecido el número de vecinos (k=1) mediante el parámetro "tuneGrid". En nuestro caso, como solo tenemos HeartDisease con valores de $1$ o $2$ nuestra $k$ será igual a $1$.
 
 Una vez construido el modelo lo evaluamos con los datos del conjunto test:
 
 ```{r, cache = TRUE}
-knnPredict <- predict(knn_fit, newdata = data.test) 
+knnPredict <- predict(knn_fit, newdata = data.test)   
 knnPredict
+``` 
+
+Utilizamos la matriz de confusión para ver los resultados estadísticos:
+
+```{r, cache = TRUE}
+confusionMatrix(table(knnPredict, data.test[,12]))    
+```
+
+Como conclusión, se puede apreciar como con K-nn hemos obtenido una precisión del 83.61% lo que indica que con una fiabilidad bastante alta se pueden predecir enfermedades del corazón. Es importante destacar que en el ámbito médico una fiabilidad del 83.61% no es admisible ya que no se puede utilizar como diagnóstico fiable. Por eso, otros posibles métodos de clasificación o una clasificación con k-nn optimizando los parámetros es necesaria para poder obtener una gran precisión. Es muy posible que utilizando el método y los parámetros adecuados se pueda obtener una puntuación mayor.
+
+\pagebreak
+
+## Aprendizaje supervisado mediante árboles de decisión
+
+Los algoritmos de aprendizaje basados en árboles se consideran uno de los mejores y más utilizados métodos de aprendizaje supervisado. Los métodos basados en árboles potencian los modelos predictivos con alta precisión, estabilidad y facilidad de interpretación.
+
+A diferencia de los modelos lineales, mapean bastante bien las relaciones no lineales. Son adaptables para resolver cualquier tipo de problema (clasificación o regresión).
+
+Un árbol de decisión es una estructura de árbol similar a un diagrama de flujo donde un nodo interno representa una característica (o atributo), la rama representa una regla de decisión y cada nodo hoja representa el resultado. De esta forma se puede representar el conocimiento y en base a las reglas y atributos estimar resultados ya sean de clasificación o regresión.
+
+Para comenzar, como hemos hecho previamente dividiremos el conjunto de datos en train y test. Tomaremos el 80% de los datos para entrenar y el 20% restante para test. Utilizaremos la librería "caret". 
+
+```{r}
+data <- read.csv("heart.csv")
+data<-data[-450,] 
+data<-data.matrix(data)  
+```
+
+
+```{r}
+library(caret)
+data[,12]<-factor(data[,12])  
+
+# Obtener los índices del conjunto de train
+trainIndex <- createDataPartition(data[,12], p = .8, list = FALSE, times = 1)
+# Seleccionar las instancias correspondientes
+data.train <- data[trainIndex, ]
+data.test <- data[-trainIndex, ] 
+```
+
+Comprobación de clases balanceadas:
+
+```{r}
+# Distribución original
+prop.table(table(data[,12]))
+# Distribución en el conjunto de train
+prop.table(table(data.train[,12]))
+# Distribución en el conjunto de test  
+prop.table(table(data.test[,12])) 
+```
+\pagebreak
+
+## Entrenamiento y Resultados del árbol de decision
+
+Vamos a crear un modelo para clasificar mediante un árbol de decisión. Vamos a realizar un $10$ fold cross validation (trainControl), lo que significa que separaremos el dataset en $10$ partes y entrenaremos $9$ de ellas y utilizaremos la restante como test. Este procedimiento se realizaría $10$ veces. En nuestro caso utilizaremos $3$ repeticiones. Hemos establecido tuneLength a $10$ lo que significa que probará a ejecutar el algoritmo con $10$ valores diferentes.
+
+ 
+```{r, cache = TRUE}
+train.ctrl <- trainControl(method="repeatedcv", number=10, repeats=3) 
+
+#añadir trControl=train.ctrl, 
+dtree_fit <- train(factor(HeartDisease) ~ ., 
+                  data=data.train,  
+                  method="rpart", 
+                  tuneLength = 10, 
+                  trControl = trainControl(method = "cv"))  
+ 
+dtree_fit
+```
+ 
+Para entrenar el árbol de decisión, debemos pasarle "method = rpart" al método train().
+
+Una vez construido el modelo lo evaluamos con los datos del conjunto test:
+
+```{r, cache = TRUE}
+dtreePredict <- predict(dtree_fit, newdata = data.test)     
+dtreePredict  
 ```
 
 Utilizamos la matriz de confusión para ver los resultados estadísticos:
 
 ```{r, cache = TRUE}
-confusionMatrix(table(knnPredict, data.test[,12])) 
+confusionMatrix(table(dtreePredict, data.test[,12]))       
 ```
 
-Como conclusión, se puede apreciar como con K-nn hemos obtenido una precisión del 84.15% lo que indica que con una fiabilidad bastante alta se pueden predecir enfermedades del corazón. Es importante destacar que en el ámbito médico una fiabilidad del 84.15% no es admisible ya que no se puede utilizar como diagnóstico fiable. Por eso, otros posibles métodos de clasificación o una clasificación con k-nn optimizando los parámetros es necesaria para poder obtener una gran precisión. Es muy posible que utilizando el método y los parámetros adecuados se pueda obtener una puntuación mayor.
+Como conclusión, se puede apreciar como con el árbol de decisión hemos obtenido una precisión del 84.15% lo que indica que con una fiabilidad bastante alta se pueden predecir enfermedades del corazón. Es importante destacar que en el ámbito médico una fiabilidad del 84.15% no es admisible ya que no se puede utilizar como diagnóstico fiable.
+
+```{r}
+library(rattle)  
+fancyRpartPlot(dtree_fit$finalModel) 
+``` 
+El árbol de decision creado con 84.15% de fiabilidad.
+
+En conclusion podemos ver que ambos modelos tienen resultados parecidos, no solamente en el accuracy sino en general. Por lo general ambos hacen una buena clasificación aunque no impecable y como conclusión se podría decir que si que se pueden predecir las enfermedades del corazón con algo de fiabilidad lo que implica que las variables del dataset son predictoras de enfermedades del corazón en mayor o menor medida.
+
