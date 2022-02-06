@@ -2,3 +2,7 @@ base
 ggplot2
 lattice
 caret
+Rtsne
+solitude
+SHAPforxgboost
+imbalance

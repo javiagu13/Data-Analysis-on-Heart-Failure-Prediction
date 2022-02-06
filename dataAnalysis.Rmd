@@ -18,17 +18,19 @@ Datos...........................................................................
 
 Estudio descriptivo general....................................................................3
 
-Análisis de relaciones entre variables...........................................................8
+Análisis de relaciones entre variables...........................................................13
 
-Modelos Predictivos..........................................................................21
+Modelos Predictivos..........................................................................26
 
-K-nn.........................................................................................21
+K-nn.........................................................................................26
 
-Entrenamiento y Resultados de K-nn.........................................................22
+Entrenamiento y Resultados de K-nn.........................................................27
 
-Árbol de Decisión............................................................................24
+Árbol de Decisión............................................................................29
 
-Entrenamiento y Resultados de Árbol de Decisión.............................................25
+Entrenamiento y Resultados de Árbol de Decisión.............................................30
+
+Comparación Estadística......................................................................32
 
 
 
@@ -96,12 +98,41 @@ Primero vamos a cargar los datos:
 
 ```{r}
 data <- read.csv("heart.csv")
-data<-data[-450,]
+
 data<-data.matrix(data) 
 
 ```
 
+### Detección de Outliers
 
+La técnica que utilizaremos es Isolation Forest. Su funcionamiento está inspirado en el algoritmo de clasificación y regresión Random Forest. Al igual que en Random Forest, un modelo Isolation Forest está formado por la combinación de múltiples árboles llamados isolation trees. Estos árboles se crea de forma similar a los de clasificación-regresión: las observaciones de entrenamiento se van separando de forma recursiva creando las ramas del árbol hasta que cada observación queda aislada en un nodo terminal. Sin embargo, en los isolation tree, la selección de los puntos de división se hace de forma aleatoria. Aquellas observaciones con características distintas al resto, quedarán aisladas a las pocas divisiones, por lo que el número de nodos necesarios para llegar a estas observación desde el inicio del árbol (profundidad) es menor que para el resto.
+
+
+```{r}
+library(solitude)
+
+iso<-isolationForest$new()
+iso$fit(data)
+
+p<-iso$predict(data)
+print(p)
+
+head(sort(p$anomaly_score))
+plot(density(p$anomaly_score))
+
+print(which(p$anomaly_score > 0.65))
+```
+podemos ver que hay algun dato que parece outlier a partir del 0.65. El valor corresponde al 733. No lo consideraremos outlier ya que al comprobar la fila 733 podemos ver que los datos son bastante diferentes a los de la mayoría, pero aún así entran dentro del rango admitido.
+
+De todas formas, la fila 450 si que la consideraremos outlier ya que a pesar de que la mayoria de los datos sean comunes, hay uno en concreto la pulsación que tiene un dato imposible, que es una pulsación de 0. Eliminamos el outlier ya que pulsación en reposo de 0 no es un dato posible.
+
+```{r}
+data<-data[-450,]
+```
+
+\pagebreak
+
+### PCA
 
 Dada la naturaleza de los datos, es importante identificar que componentes estan relacionados entre ellos y con las enfermedades cardíacas. Por eso, vamos a proceder a aplicar la tecnica del PCA (Principal component analysis) para reducir la dimensionalidad de los datos y entender mejor las relaciones de nuestro dataset.
 
@@ -143,6 +174,8 @@ cor(data[,c(1:11)], data2[, 13:16])
 
 \pagebreak
 
+### tSNE
+
 Además de PCA realizaremos un analisis con tSNE. En caso de que los clusters sean obvios tSNE debería separarlos claramente en dos dimensiones
 
 ```{r}
@@ -159,6 +192,63 @@ text(tsne$Y, labels=data[,12], col=cols[data[,12] +1])
 Se puede ver como separa los datos en dos clusters. En uno parece que hay una mayor cantidad de unos que de ceros mientras que en el otro parece bastante balanceado. No parece que tSNE haya realizado una clara separación en cuanto a la variable **HeartDisease** se refiere. (en este gráfico en concreto $0$ hace referencia a pacientes sanos mientras que $1$ hace referencia a pacientes con enfermedades del corazón).
 
 \pagebreak
+
+### Gestión del desbalanceo
+
+Es importante analizar el posible desbalanceo de un dataset ya que las predicciones se pueden ver afectadas. Previamente, con los analisis visuales parecía bastante balanceado. Para el resto de los análisis lo ideal es trabajar con una base de datos completamente balanceada. Lo primero vamos a comprobar el grado de desbalanceo:
+
+```{r}
+table(data[,12])
+```
+
+Se puede apreciar que esta bastante balanceada, aún así aplicaremos técnicas de balanceo como sería el caso de SMOTE. Primero calcularemos la diferencia entre ambas clases y resamplearemos las clases faltantes:
+
+```{r}
+library(imbalance)
+
+dif <-table(data[,12])[2] - table(data[,12])[1]
+data<-as.data.frame(data)
+smoteDataset<-mwmote(data, numInstances=dif, classAttr="HeartDisease")
+
+data<-rbind(data, smoteDataset)
+
+
+```
+
+Vamos a comprobar que los datos se han balanceado:
+
+```{r}
+table(data[,12])
+```
+Ahora con la base de datos balanceada procedemos con el resto de los análisis.
+\pagebreak
+
+### SHAP values
+
+SHAP viene de “Shapley Additive exPlanation” y está basado en la teoría de Juegos para explicar cómo cada uno de los jugadores que intervienen en un “juego colaborativo” contribuyen en el éxito de la partida. Con esto podemos comprender una predicción y como impacta cada feature. Podemos decir que la interpretabilidad que nos ofrecen los valores SHAP es de las mejores. Para ello utilizaremos la libreria SHAPforxgboost.
+
+
+```{r}
+library("SHAPforxgboost")
+colnames(data)
+X1 = as.matrix(data[,-12]) # dejar las predictoras
+# aprender el modelo XGBoost. Fijar predictoras y clase
+mod1 = xgboost::xgboost(
+data = X1, label = data[,12], gamma = 0, eta = 1,
+lambda = 0,nrounds = 1, verbose = FALSE)
+# calcular los SHAP values para cada caso - seg´un modelo aprendido
+shap_values <- shap.values(xgb_model = mod1, X_train = X1)
+shap_values$mean_shap_score
+shap_values_diabetes <- shap_values$shap_score
+shap_long_diabetes <- shap.prep(xgb_model = mod1, X_train = X1)
+# **SHAP summary plot**
+shap.plot.summary(shap_long_diabetes)
+shap.plot.summary(shap_long_diabetes, x_bound = 1.5, dilute = 10)
+```
+Podemos ver como el *ST_Slope* y *ChestPainType* tienen la mayor importancia. Al igual que en el análisis de componentes principales podemos ver como *ST_Slope* se repite, lo cual es además un indicador de la importancia de dicha variable.
+
+\pagebreak
+
 # Análisis de relaciones entre variables
 
 Primero de todo vamos a crear nuevos dataframes para hacer analisis específicos de variables y compararemos las variables con *HeartDisease*. En concreto vamos a elegir las variables con mayores puntuaciones en el analisis de PCA y menores puntuaciones (*Age*,*ExerciseAngina*,*RestingBP*,*Oldpeak*,*ST_Slope*,*MaxHR*):
@@ -294,7 +384,6 @@ En el caso de la máxima puntuación se puede ver como gente con mayores niveles
 Parece que la *angina*, *oldpeak* y *ST_Slope* son las variables que más claramente predicen las enfermedades del corazón. Además la máxima pulsación *MaxHR* y la edad *age* tambien parecen bastante buenas predictoras.
 
 
-\pagebreak
 # Modelos predictivos
 
 Después de haber explorado la base de datos y haber extraido conclusiones, es hora de intentar predecir dados unos datos iniciales si un paciente tiene o tendrá enfermedades del corazón. Para comenzar, utilizaremos el conocido algoritmo de K-nn.
@@ -431,8 +520,8 @@ dtreePredict
 
 Utilizamos la matriz de confusión para ver los resultados estadísticos:
 
-```{r, cache = TRUE}
-confusionMatrix(table(dtreePredict, data.test[,12]))       
+```{r, cache = FALSE}
+confusionMatrix(table(dtreePredict, data.test[,12]))        
 ```
 
 Como conclusión, se puede apreciar como con el árbol de decisión hemos obtenido una precisión del 84.15% lo que indica que con una fiabilidad bastante alta se pueden predecir enfermedades del corazón. Es importante destacar que en el ámbito médico una fiabilidad del 84.15% no es admisible ya que no se puede utilizar como diagnóstico fiable.
@@ -443,5 +532,12 @@ fancyRpartPlot(dtree_fit$finalModel)
 ``` 
 El árbol de decision creado con 84.15% de fiabilidad.
 
+# Comparación Estadística
+
 En conclusion podemos ver que ambos modelos tienen resultados parecidos, no solamente en el accuracy sino en general. Por lo general ambos hacen una buena clasificación aunque no impecable y como conclusión se podría decir que si que se pueden predecir las enfermedades del corazón con algo de fiabilidad lo que implica que las variables del dataset son predictoras de enfermedades del corazón en mayor o menor medida.
 
+Ahora, es imprescindible entender que en el caso de enfermedades del corazón, lo que realmente nos interesa saber es cuantos "true positive" o verdaderos positivos hay, ya que, lo que queremos saber es la tasa de que un paciente enfermo sea diagnosticado como tal, de modo que el accuracy de kNN de 81.68% y el de el arbol de decisión de 84.15% no son resultados fiables ya que habla del total. 
+
+Para ello en nuestro caso debemos mirar la tasa de "Specificicty" ya que es la tasa de verdaderos positivos en el caso de kNN es de 87.13% y en el caso de el árbol de decisión es del 87.63%. 
+
+En conclusión, podemos decir que ambos modelos funcionan bastante bien y con una precisión del 87% de media en la predicción.
